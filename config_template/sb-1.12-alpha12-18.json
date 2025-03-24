@@ -1,39 +1,38 @@
 {
   "log": {
+    "disabled": false,
     "level": "info",
+    "output": "box.log",
     "timestamp": true
   },
   "experimental": {
+    "cache_file": {
+      "enabled": true
+    },
     "clash_api": {
-      "external_controller": "127.0.0.1:9090",
+      "external_controller": "0.0.0.0:9090",
       "external_ui": "ui",
       "secret": "",
-      "external_ui_download_url": "https://gh-proxy.com/https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip",
-      "external_ui_download_detour": "direct",
-      "default_mode": "rule"
-    },
-  "cache_file": {
-    "enabled": true,
-    "store_fakeip": true,
-    "store_rdrc": true
+      "external_ui_download_url": "https://gh-proxy.com/https://github.com/Zephyruso/zashboard/releases/latest/download/dist.zip",
+      "external_ui_download_detour": "select"
     }
   },
   "dns": {
     "servers": [
       {
-        "tag": "dns_google",
-        "type": "tls",
-        "server": "8.8.8.8",
+        "tag": "dns_proxy",
+        "type": "https",
+        "server": "1.1.1.1",
         "detour": "select"
       },
       {
-        "tag": "local",
+        "tag": "dns_direct",
         "type": "https",
         "server": "223.5.5.5",
         "detour": "direct"
       },
       {
-        "tag": "fakeip",
+        "tag": "dns_fakeip",
         "type": "fakeip",
         "inet4_range": "198.18.0.0/15",
         "inet6_range": "fc00::/18"
@@ -41,75 +40,67 @@
     ],
     "rules": [
       {
-        "clash_mode": "direct",
-        "server": "local"
-      },
-      {
-        "clash_mode": "global",
-        "server": "dns_google"
+        "type": "logical",
+        "mode": "or",
+        "rules": [
+          {
+            "query_type": "HTTPS"
+          },
+          {
+            "rule_set": [
+              "AdGuardSDNSFilter"
+            ]
+          }
+        ],
+        "action": "reject"
       },
       {
         "query_type": [
           "A",
           "AAAA"
         ],
-        "rule_set": "geosite-cn",
-        "server": "fakeip"
-      },
-      {
-        "rule_set": "geosite-cn",
-        "server": "local"
+        "server": "dns_fakeip",
+        "rewrite_ttl": 1
       },
       {
         "type": "logical",
-        "mode": "and",
+        "mode": "or",
         "rules": [
           {
-            "rule_set": "geosite-geolocation-!cn",
-            "invert": true
-          },
-          {
-            "rule_set": "geoip-cn"
+            "clash_mode": "Global"
           }
         ],
-        "server": "dns_google",
-        "client_subnet": "114.114.114.114/24"
+        "server": "dns_proxy"
       },
       {
-        "query_type": [
-          "A",
-          "AAAA"
+        "type": "logical",
+        "mode": "or",
+        "rules": [
+          {
+            "clash_mode": "Direct"
+          },
+          {
+            "rule_set": "geosite-cn"
+          }
         ],
-        "server": "fakeip"
+        "server": "dns_direct"
       }
     ],
-    "independent_cache": true,
-    "strategy": "prefer_ipv4"
+    "strategy": "prefer_ipv4",
+    "independent_cache": true
   },
   "inbounds": [
     {
-      "tag": "tun-in",
-      "type": "tun",
-      "address": [
-        "172.19.0.0/30",
-        "fdfe:dcba:9876::0/126"
-      ],
-      "stack": "system",
-      "auto_route": true,
-      "strict_route": true,
-      "platform": {
-        "http_proxy": {
-          "enabled": true,
-          "server": "127.0.0.1",
-          "server_port": 7890
-        }
-      }
+      "type": "socks",
+      "tag": "socks-in",
+      "listen": "0.0.0.0",
+      "listen_port": 2333
     },
     {
-      "tag": "mixed-in",
       "type": "mixed",
-      "listen": "127.0.0.1",
-      "listen_port": 7890
+      "tag": "mixed-in",
+      "listen": "0.0.0.0",
+      "listen_port": 2334
     }
   ],
   "outbounds": [
@@ -118,7 +109,7 @@
       "type":"selector",
       "outbounds":[
         "urltest",
-        "{all}",
+        "{all}"
       ]
     },
     {
@@ -152,8 +143,6 @@
         "HongKong",
         "TaiWan",
         "Singapore",
-        "Japan",
-        "America",
         "Others"
       ]
     },
@@ -398,49 +387,109 @@
     }
   ],
   "route": {
-    "default_domain_resolver": {
-      "server": "local"
-    },
+    "default_domain_resolver": "dns_direct",
     "auto_detect_interface": true,
+    "override_android_vpn": true,
     "final": "select",
     "rules": [
       {
-        "inbound": ["tun-in", "mixed-in"],
         "action": "sniff"
+      },
+      {
+        "protocol": "dns",
+        "action": "hijack-dns"
+      },
+      {
+        "action": "resolve",
+        "strategy": "prefer_ipv4"
       },
       {
         "type": "logical",
         "mode": "or",
-        "rules":[
+        "rules": [
           {
-            "port":53
+            "clash_mode": "Global"
           },
           {
-            "protocol": "dns"
+            "domain_suffix": [
+              "tbtool.cn",
+              "youtubei.googleapis.com"
+            ]
           }
         ],
-        "action": "hijack-dns"
-      },
-      {
-        "clash_mode": "direct",
-        "outbound": "direct"
-      },
-      {
-        "ip_is_private": true,
-        "outbound": "direct"
-      },
-      {
-        "domain": [
-          "clash.razord.top",
-          "yacd.metacubex.one",
-          "yacd.haishan.me",
-          "d.metacubex.one"
-        ],
-        "outbound": "direct"
-      },
-      {
-        "clash_mode": "global",
         "outbound": "select"
+      },
+      {
+        "type": "logical",
+        "mode": "or",
+        "rules": [
+          {
+            "package_name": "com.openai.chatgpt"
+          }
+        ],
+        "outbound": "chatgpt"
+      },
+      {
+        "type": "logical",
+        "mode": "or",
+        "rules": [
+          {
+            "clash_mode": "Direct"
+          },
+          {
+            "ip_is_private": true
+          },
+          {
+            "domain_keyword": [
+              "ushd.xmsl.org",
+              "cf.gtlx.org",
+              "mtalk.google.com",
+              "alicdn"
+            ]
+          },
+          {
+            "domain_suffix": [
+              "steamcontent.com",
+              "steamusercontent-a.akamaihd.net",
+              "cm.steampowered.com",
+              "steamserver.net",
+              "askmanyai.cn",
+              "rust-lang.org",
+              "crates.io",
+              "codeberg.org",
+              "godbolt.org",
+              "locyanfrp.cn",
+              "litiaotiao.cn",
+              "aur.archlinux.org",
+              "cimbar.org",
+              "exp-tas.com",
+              "bytednsdoc.com"
+            ]
+          },
+          {
+            "port": [
+              3478,
+              19302,
+              23301,
+              22101,
+              22102,
+              20501,
+              21601,
+              21602,
+              21603,
+              21604,
+              21605,
+              21606
+            ]
+          },
+          {
+            "rule_set": [
+              "geoip-cn",
+              "geosite-cn"
+            ]
+          }
+        ],
+        "outbound": "China"
       },
       {
         "rule_set": "geosite-category-ads-all",
@@ -515,13 +564,16 @@
       {
         "rule_set": "geosite-geolocation-!cn",
         "outbound": "Global"
-      },
-      {
-        "rule_set": ["geoip-cn", "geosite-cn"],
-        "outbound": "China"
       }
     ],
     "rule_set": [
+      {
+        "tag": "AdGuardSDNSFilter",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/xmdhs/sing-box-ruleset/rule-set/AdGuardSDNSFilterSingBox.srs",
+        "download_detour": "select"
+      },
       {
         "tag": "geosite-category-ads-all",
         "type": "remote",

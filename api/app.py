@@ -4,7 +4,6 @@ import json
 import os
 import sys
 import subprocess
-import tempfile
 import shutil
 import tempfile  # 导入 tempfile 模块
 from datetime import datetime, timedelta
@@ -46,6 +45,17 @@ def get_template_list():
     template_list.sort()  # 对文件名进行排序
     return template_list
 
+# Get the config list used by user
+def get_custom_list():
+    conf_dir = 'config'
+    if not os.path.exists(conf_dir):
+        return []
+
+    conf_files = os.listdir(conf_dir)
+    conf_list = [os.path.splitext(file)[0] for file in conf_files if file.endswith('.json')]
+    conf_list.sort()
+    return conf_list
+
 # 读取providers.json文件的内容，如果有临时 JSON 数据则使用它
 def read_providers_json():
     temp_json_data = get_temp_json_data()
@@ -64,7 +74,8 @@ def write_providers_json(data):
 
 @app.route('/')
 def index():
-    template_list = get_template_list()
+    template_list = get_custom_list()
+    template_list += get_template_list()
     template_options = [f"{index + 1}、{template}" for index, template in enumerate(template_list)]
     providers_data = read_providers_json()
     temp_json_data = get_temp_json_data()
