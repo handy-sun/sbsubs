@@ -1,0 +1,13 @@
+.*
+*.pyc
+app/__pycache__
+parser/__pycache__
+__pycache__
+vercel*
+config
+Dockerfile
+
+env/
+venv/
+uv.lock
+pyproject.toml
